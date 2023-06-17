@@ -27,12 +27,14 @@ class SimpleClient:
 
 
     def l_pop(self, key: int) -> Union[str, None]:
-        res = self.stub.LPop(GetRequest(key=key))
+        req = GetRequest(key=key)
+        res = self.stub.LPop(req)
         ret = _get_return(res)
         return ret
 
     def r_pop(self, key: int) -> Union[str, None]:
-        res = self.stub.RPop(GetRequest(key=key))
+        req = GetRequest(key=key)
+        res = self.stub.RPop(req)
         ret = _get_return(res)
         return ret
 
