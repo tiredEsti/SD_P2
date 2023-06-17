@@ -30,7 +30,6 @@ class ShardMasterSimpleService(ShardMasterService):
         self.servers = []
         self.max = 100
         
-    #A storage server joins the system. The shard master stores the new server’s address and redistributes the keys based on the new number of servers.
     def join(self, server: str):
         keys = int(self.max / len(self.servers))
         for i in range(len(self.servers)):
