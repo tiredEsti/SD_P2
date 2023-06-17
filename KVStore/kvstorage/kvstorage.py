@@ -98,12 +98,13 @@ class KVStorageSimpleService(KVStorageService):
         for key in self.data:
             if key >= lower_val and key <= upper_val:
                 keys_values.append(KeyValue(key=key, value=self.data[key]))
-        self.transfer(keys_values)
-
-    def transfer(self, keys_values: List[KeyValue]):
         with grpc.insecure_channel(destination_server) as channel:
             stub = KVStoreStub(channel)
             stub.Transfer(TransferRequest(keys_values=keys_values))
+
+    def transfer(self, keys_values: List[KeyValue]):
+        for kv in keys_values:
+            self.data[kv.key] = kv.value
         
 
 
