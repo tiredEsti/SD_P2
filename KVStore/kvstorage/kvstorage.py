@@ -169,21 +169,21 @@ class KVStorageServicer(KVStoreServicer):
 
     def LPop(self, request: GetRequest, context) -> GetResponse:
         key = request.key
-        value = self.storage_service.l_pop(key)
+        value = self.storage_service.get(key)
         if value is None:
             return GetResponse()
         elif value == "":
             return GetResponse(value="")
-        return GetResponse(value=value)
+        return GetResponse(value=self.storage_service.l_pop(key))
 
     def RPop(self, request: GetRequest, context) -> GetResponse:
         key = request.key
-        value = self.storage_service.r_pop(key)
+        value = self.storage_service.get(key)
         if value is None:
             return GetResponse()
         elif value == "":
             return GetResponse(value="")
-        return GetResponse(value=value)
+        return GetResponse(value=self.storage_service.r_pop(key))
 
     def Put(self, request: PutRequest, context) -> google_dot_protobuf_dot_empty__pb2.Empty:
         key = request.key
