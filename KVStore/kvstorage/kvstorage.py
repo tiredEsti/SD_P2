@@ -60,7 +60,7 @@ class KVStorageSimpleService(KVStorageService):
             return None
 
     def l_pop(self, key: int) -> Union[str, None]:
-        self.lock.aquire()
+        self.lock.acquire()
         if key in self.data:
             value = self.data[key]
             self.data[key] = value[1:]
@@ -72,7 +72,7 @@ class KVStorageSimpleService(KVStorageService):
 
 
     def r_pop(self, key: int) -> Union[str, None]:
-        self.lock.aquire()
+        self.lock.acquire()
         if key in self.data:
             value = self.data[key]
             self.data[key] = value[:-1]
@@ -86,7 +86,7 @@ class KVStorageSimpleService(KVStorageService):
         self.data[key] = value
 
     def append(self, key: int, value: str):
-        self.lock.aquire()
+        self.lock.acquire()
         if key in self.data:
             self.data[key] += value
         else:
