@@ -48,7 +48,7 @@ class KVStorageService:
 
 class KVStorageSimpleService(KVStorageService):
 
-    def __init__(self, service: KVStoreService):
+    def __init__(self):
         self.data = {}
         self.lock = Lock()
 
