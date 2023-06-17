@@ -5,6 +5,7 @@ import logging
 import grpc
 from KVStore.protos.kv_store_pb2 import *
 from KVStore.protos.kv_store_pb2_grpc import KVStoreServicer, KVStoreStub
+import threading
 
 from KVStore.protos.kv_store_shardmaster_pb2 import Role
 
@@ -50,7 +51,7 @@ class KVStorageSimpleService(KVStorageService):
 
     def __init__(self):
         self.data = {}
-        self.lock = Lock()
+        self.lock = threading.Lock()
 
     def get(self, key: int) -> Union[str, None]:
         if key in self.data:
