@@ -48,45 +48,62 @@ class KVStorageService:
 
 class KVStorageSimpleService(KVStorageService):
 
-    def __init__(self):
-        """
-        To fill with your code
-        """
+    def __init__(self, service: KVStoreService):
+        self.data = {}
+        self.lock = Lock()
 
     def get(self, key: int) -> Union[str, None]:
-        """
-        To fill with your code
-        """
+        if key in self.data:
+            return self.data[key]
+        else:
+            return None
 
     def l_pop(self, key: int) -> Union[str, None]:
-        """
-        To fill with your code
-        """
+        self.lock.aquire()
+        if key in self.data:
+            value = self.data[key]
+            self.data[key] = value[1:]
+            self.lock.release()
+            return value[0]
+        else:
+            self.lock.release()
+            return None
+
 
     def r_pop(self, key: int) -> Union[str, None]:
-        """
-        To fill with your code
-        """
+        self.lock.aquire()
+        if key in self.data:
+            value = self.data[key]
+            self.data[key] = value[:-1]
+            self.lock.release()
+            return value[-1]
+        else:
+            self.lock.release()
+            return None
 
     def put(self, key: int, value: str):
-        """
-        To fill with your code
-        """
+        self.data[key] = value
 
     def append(self, key: int, value: str):
-        """
-        To fill with your code
-        """
+        self.lock.aquire()
+        if key in self.data:
+            self.data[key] += value
+        else:
+            self.data[key] = value
+        self.lock.release()
 
     def redistribute(self, destination_server: str, lower_val: int, upper_val: int):
-        """
-        To fill with your code
-        """
-
+        keys_values = []
+        for key in self.data:
+            if key >= lower_val and key <= upper_val:
+                keys_values.append(KeyValue(key=key, value=self.data[key]))
+        self.transfer(keys_values)
+        
     def transfer(self, keys_values: List[KeyValue]):
-        """
-        To fill with your code
-        """
+        with grpc.insecure_channel(destination_server) as channel:
+            stub = KVStoreStub(channel)
+            stub.Transfer(TransferRequest(keys_values=keys_values))
+        
 
 
 class KVStorageReplicasService(KVStorageSimpleService):
@@ -143,9 +160,11 @@ class KVStorageServicer(KVStoreServicer):
         """
 
     def Get(self, request: GetRequest, context) -> GetResponse:
-        """
-        To fill with your code
-        """
+        key = request.key
+        value = self.storage_service.get(key)
+        if value is None:
+            return GetResponse()
+        return GetResponse(value=value)
 
     def LPop(self, request: GetRequest, context) -> GetResponse:
         """
@@ -158,9 +177,10 @@ class KVStorageServicer(KVStoreServicer):
         """
 
     def Put(self, request: PutRequest, context) -> google_dot_protobuf_dot_empty__pb2.Empty:
-        """
-        To fill with your code
-        """
+        key = request.key
+        value = request.value
+        self.storage_service.put(key, value)
+        return google_dot_protobuf_dot_empty__pb2.Empty()
 
     def Append(self, request: AppendRequest, context) -> google_dot_protobuf_dot_empty__pb2.Empty:
         """

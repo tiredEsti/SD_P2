@@ -27,24 +27,37 @@ class ShardMasterService:
 
 class ShardMasterSimpleService(ShardMasterService):
     def __init__(self):
-        """
-        To fill with your code
-        """
-
+        self.servers = []
+        self.max = 100
+        
+    #A storage server joins the system. The shard master stores the new server’s address and redistributes the keys based on the new number of servers.
     def join(self, server: str):
-        """
-        To fill with your code
-        """
+        keys = int(self.max / len(self.servers))
+        for i in range(len(self.servers)):
+            with grpc.insecure_channel(self.servers[i]) as channel:
+                stub = KVStoreStub(channel)
+                stub.redistribute(RedistributeRequest(lower=keys * i, upper=keys * (i + 1), destination_server=server))
+        self.servers.append(server)
+        
 
     def leave(self, server: str):
-        """
-        To fill with your code
-        """
+        if server not in self.servers:
+            return
+        keys = int(self.max / len(self.servers))
+        for i in range(len(self.servers)):
+            with grpc.insecure_channel(self.servers[i]) as channel:
+                stub = KVStoreStub(channel)
+                stub.redistribute(RedistributeRequest(lower=keys * i, upper=keys * (i + 1), destination_server=server))
+        self.servers.remove(server)
 
     def query(self, key: int) -> str:
-        """
-        To fill with your code
-        """
+        if key < 0 or key > self.max:
+            return ""
+        for i in range(len(self.servers)):
+            if key < (i + 1) * int(self.max / len(self.servers)):
+                with grpc.insecure_channel(self.servers[i]) as channel:
+                    stub = KVStoreStub(channel)
+                    return stub.get(ServerRequest(key=key)).value
 
 
 class ShardMasterReplicasService(ShardMasterSimpleService):
@@ -78,19 +91,15 @@ class ShardMasterServicer(ShardMasterServicer):
         """
 
     def Join(self, request: JoinRequest, context) -> google_dot_protobuf_dot_empty__pb2.Empty:
-        """
-        To fill with your code
-        """
+        self.shard_master_service.join(request.server)
+        return google_dot_protobuf_dot_empty__pb2.Empty()
 
     def Leave(self, request: LeaveRequest, context) -> google_dot_protobuf_dot_empty__pb2.Empty:
-        """
-        To fill with your code
-        """
+        self.shard_master_service.leave(request.server)
+        return google_dot_protobuf_dot_empty__pb2.Empty()
 
     def Query(self, request: QueryRequest, context) -> QueryResponse:
-        """
-        To fill with your code
-        """
+        return QueryResponse(server=self.shard_master_service.query(request.key))
 
     def JoinReplica(self, request: JoinRequest, context) -> JoinReplicaResponse:
         """
