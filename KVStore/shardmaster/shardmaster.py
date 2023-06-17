@@ -5,6 +5,7 @@ from KVStore.protos.kv_store_pb2_grpc import KVStoreStub
 from KVStore.protos.kv_store_shardmaster_pb2_grpc import ShardMasterServicer
 from KVStore.protos.kv_store_shardmaster_pb2 import *
 import grpc
+import threading
 
 logger = logging.getLogger(__name__)
 
@@ -26,32 +27,31 @@ class ShardMasterService:
         pass
 
 
+
+
+def get_overlap(lower1: int, upper1: int, lower2: int, upper2: int):
+    """ 
+    Returns the overlap between the two intervals, if any.
+    """
+    if upper1 < lower2 or upper2 < lower1:
+        return None
+    else:
+        return [max(lower1, lower2), min(upper1, upper2)]
+
 class ShardMasterSimpleService(ShardMasterService):
     def __init__(self):
-        self.servers = []
+        self.servers = {"address":[], "upper_key":[], "lower_key":[]}
+        self.lock = threading.Lock()
     
     def join(self, server: str):
-        # Add the new server's address to the list of servers
-        self.servers.append(server)
-
         if len(self.servers) == 0:
-            num_keys = KEYS_UPPER_THRESHOLD+1
-        old_num_keys = int(KEYS_UPPER_THRESHOLD/(len(self.servers)-1))
-        num_keys = int(KEYS_UPPER_THRESHOLD/len(self.servers))
-        residue = KEYS_UPPER_THRESHOLD%len(self.servers)
+            self.servers["address"].append(server)
+            self.servers["upper_key"].append(KEYS_UPPER_THRESHOLD)
+            self.servers["lower_key"].append(KEYS_LOWER_THRESHOLD)
+        else:
+            return 0
 
-        for i in range(len(self.servers)-1):
-            if(i == len(self.servers)-2):
-                #For the Last server
-                req = RedistributeRequest(destination_server=self.servers[i+1], lower_val=i*num_keys+num_keys+1+(residue>0), upper_val=(i+1)*num_keys+num_keys-1)
-                stub = KVStoreStub(grpc.insecure_channel(self.servers[i]))
-                stub.Redistribute(req)
-            else:
-                req = RedistributeRequest(destination_server=self.servers[i+1], lower_val=i*num_keys+num_keys+1+(residue>0), upper_val=(i+1)*num_keys)
-                residue -= 1
-                stub = KVStoreStub(grpc.insecure_channel(self.servers[i]))
-                stub.Redistribute(req)
-
+        
 
 
         
