@@ -168,14 +168,18 @@ class KVStorageServicer(KVStoreServicer):
         return GetResponse(value=value)
 
     def LPop(self, request: GetRequest, context) -> GetResponse:
-        """
-        To fill with your code
-        """
+        key = request.key
+        value = self.storage_service.l_pop(key)
+        if value is None:
+            return GetResponse()
+        return GetResponse(value=value)
 
     def RPop(self, request: GetRequest, context) -> GetResponse:
-        """
-        To fill with your code
-        """
+        key = request.key
+        value = self.storage_service.r_pop(key)
+        if value is None:
+            return GetResponse()
+        return GetResponse(value=value)
 
     def Put(self, request: PutRequest, context) -> google_dot_protobuf_dot_empty__pb2.Empty:
         key = request.key
