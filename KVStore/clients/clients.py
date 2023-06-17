@@ -37,7 +37,8 @@ class SimpleClient:
         return ret
 
     def put(self, key: int, value: str):
-        res = self.stub.Put(key=key, value=value)
+        req = PutRequest(key=key, value=value)
+        res = self.stub.Put(req)
 
     def append(self, key: int, value: str):
         res = self.stub.Append(key=key, value=value)
@@ -55,14 +56,16 @@ class ShardClient(SimpleClient):
         """
 
     def get(self, key: int) -> Union[str, None]:
-        """
-        To fill with your code
-        """
+        query = QueryRequest(key=key))
+        res = self.stub.Query(query)
+        server = res.server
+
 
     def l_pop(self, key: int) -> Union[str, None]:
         """
         To fill with your code
         """
+
 
 
     def r_pop(self, key: int) -> Union[str, None]:
