@@ -40,43 +40,81 @@ def get_overlap(lower1: int, upper1: int, lower2: int, upper2: int):
 
 class ShardMasterSimpleService(ShardMasterService):
     def __init__(self):
-        self.servers = {"address":[], "upper_key":[], "lower_key":[]}
+        self.servers = dict()
         self.lock = threading.Lock()
+
     
     def join(self, server: str):
         if len(self.servers) == 0:
-            self.servers["address"].append(server)
-            self.servers["upper_key"].append(KEYS_UPPER_THRESHOLD)
-            self.servers["lower_key"].append(KEYS_LOWER_THRESHOLD)
+            self.servers[server] = KEYS_UPPER_THRESHOLD
         else:
-            return 0
+            num_keys = KEYS_UPPER_THRESHOLD//(len(self.servers)+1)
 
-        
+            new_servers = self.servers.copy()
+            top = num_keys
+            for s in self.servers:
+                new_servers[s] = top
+                top += num_keys
+            
+            new_servers[server] = KEYS_UPPER_THRESHOLD
 
+            #Redistribute keys
+            self.lock.acquire()
+            min_key1 = KEYS_LOWER_THRESHOLD
+            min_key2 = KEYS_LOWER_THRESHOLD
+            aux = new_servers.items()
+            for s, upper in self.servers.items():
+                for s2, upper2 in aux:
+                    if s != s2:
+                        overlap = get_overlap(min_key1, upper, min_key2, upper2)
+                        if overlap is not None:
+                            channel = grpc.insecure_channel(s)
+                            stub = KVStoreStub(channel)
+                            req = RedistributeRequest(destination_server=s2, lower_val=overlap[0], upper_val=overlap[1])
+                            stub.Redistribute(req)
+                    min_key2 = upper2
+                min_key1 = upper
+            self.servers = new_servers
+            self.lock.release()
 
         
 
     def leave(self, server: str):
         if len(self.servers) > 1:
-            # Remove the server's address from the list of servers
-            old_num_keys = int(KEYS_UPPER_THRESHOLD/(len(self.servers)))
-            old_residue = KEYS_UPPER_THRESHOLD%len(self.servers)
-            
-            self.servers.remove(server)
-            num_keys = int(KEYS_UPPER_THRESHOLD/(len(self.servers)))
-            residue = KEYS_UPPER_THRESHOLD%len(self.servers)
-
-            
-        
+            num_keys = KEYS_UPPER_THRESHOLD//(len(self.servers)-1)
+            top = num_keys
+            new_servers = self.servers.copy()
+            new_servers.pop(server)
+            for s in new_servers:
+                new_servers[s] = top
+                top += num_keys
+            #Redistribute keys
+            self.lock.acquire()
+            min_key1 = KEYS_LOWER_THRESHOLD
+            min_key2 = KEYS_LOWER_THRESHOLD
+            aux = new_servers.items()
+            for s, upper in self.servers.items():
+                for s2, upper2 in aux:
+                    if s != s2:
+                        overlap = get_overlap(min_key1, upper, min_key2, upper2)
+                        if overlap is not None:
+                            channel = grpc.insecure_channel(s)
+                            stub = KVStoreStub(channel)
+                            req = RedistributeRequest(destination_server=s2, lower_val=overlap[0], upper_val=overlap[1])
+                            stub.Redistribute(req)
+                    min_key2 = upper2
+                min_key1 = upper
+            self.servers = new_servers
+            self.lock.release()
 
     #Asks the shard master about the server that holds the provided key. Returns the corresponding server address. 
     def query(self, key: int) -> str:
-        num_keys = int(KEYS_UPPER_THRESHOLD/len(self.servers))
-        residue = KEYS_UPPER_THRESHOLD%len(self.servers)
-        for i in range(len(self.servers)):
-            if key <= (i+1)*num_keys + (residue>0):
-                return self.servers[i]
-        return self.servers[-1]
+        for s, upper in self.servers.items():
+            if key >= upper:
+                continue
+            else:
+                return s
+        return ""
         
 
 class ShardMasterReplicasService(ShardMasterSimpleService):
