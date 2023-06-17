@@ -41,7 +41,8 @@ class SimpleClient:
         res = self.stub.Put(req)
 
     def append(self, key: int, value: str):
-        res = self.stub.Append(key=key, value=value)
+        req = PutRequest(key=key, value=value)
+        res = self.stub.Append(req)
 
     def stop(self):
         self.channel.close()
