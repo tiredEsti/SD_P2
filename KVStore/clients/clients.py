@@ -56,7 +56,7 @@ class ShardClient(SimpleClient):
         """
 
     def get(self, key: int) -> Union[str, None]:
-        query = QueryRequest(key=key))
+        query = QueryRequest(key=key)
         res = self.stub.Query(query)
         server = res.server
 
