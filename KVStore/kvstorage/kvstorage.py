@@ -48,7 +48,7 @@ class KVStorageService:
 
 class KVStorageSimpleService(KVStorageService):
 
-    def __init__(self, service: KVStoreService):
+    def __init__(self):
         self.data = {}
         self.lock = Lock()
 
@@ -98,7 +98,7 @@ class KVStorageSimpleService(KVStorageService):
             if key >= lower_val and key <= upper_val:
                 keys_values.append(KeyValue(key=key, value=self.data[key]))
         self.transfer(keys_values)
-        
+
     def transfer(self, keys_values: List[KeyValue]):
         with grpc.insecure_channel(destination_server) as channel:
             stub = KVStoreStub(channel)
@@ -183,19 +183,19 @@ class KVStorageServicer(KVStoreServicer):
         return google_dot_protobuf_dot_empty__pb2.Empty()
 
     def Append(self, request: AppendRequest, context) -> google_dot_protobuf_dot_empty__pb2.Empty:
-        """
-        To fill with your code
-        """
+        key = request.key
+        value = request.value
+        self.storage_service.append(key, value)
+        return google_dot_protobuf_dot_empty__pb2.Empty()
 
     def Redistribute(self, request: RedistributeRequest, context) -> google_dot_protobuf_dot_empty__pb2.Empty:
-        """
-        To fill with your code
-        """
+        self.storage_service.redistribute(request.destination_server, request.lower_val, request.upper_val)
+        return google_dot_protobuf_dot_empty__pb2.Empty()
+        
 
     def Transfer(self, request: TransferRequest, context) -> google_dot_protobuf_dot_empty__pb2.Empty:
-        """
-        To fill with your code
-        """
+        self.storage_service.transfer(request.keys_values)
+        return google_dot_protobuf_dot_empty__pb2.Empty()
 
     def AddReplica(self, request: ServerRequest, context) -> google_dot_protobuf_dot_empty__pb2.Empty:
         """
