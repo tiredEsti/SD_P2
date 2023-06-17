@@ -28,7 +28,6 @@ class SimpleClient:
 
     def l_pop(self, key: int) -> Union[str, None]:
         req = GetRequest(key=key)
-        print("\nKKDVK")
         res = self.stub.LPop(req)
         ret = _get_return(res)
         return ret
