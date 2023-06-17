@@ -4,6 +4,7 @@ from KVStore.protos.kv_store_pb2 import RedistributeRequest, ServerRequest
 from KVStore.protos.kv_store_pb2_grpc import KVStoreStub
 from KVStore.protos.kv_store_shardmaster_pb2_grpc import ShardMasterServicer
 from KVStore.protos.kv_store_shardmaster_pb2 import *
+import grpc
 
 logger = logging.getLogger(__name__)
 
@@ -28,36 +29,55 @@ class ShardMasterService:
 class ShardMasterSimpleService(ShardMasterService):
     def __init__(self):
         self.servers = []
-        self.max = 100
-        
+    
     def join(self, server: str):
-        keys = int(self.max / len(self.servers))
-        for i in range(len(self.servers)):
-            with grpc.insecure_channel(self.servers[i]) as channel:
-                stub = KVStoreStub(channel)
-                stub.redistribute(RedistributeRequest(lower=keys * i, upper=keys * (i + 1), destination_server=server))
+        # Add the new server's address to the list of servers
         self.servers.append(server)
+
+        if len(self.servers) == 0:
+            num_keys = KEYS_UPPER_THRESHOLD+1
+        old_num_keys = int(KEYS_UPPER_THRESHOLD/(len(self.servers)-1))
+        num_keys = int(KEYS_UPPER_THRESHOLD/len(self.servers))
+        residue = KEYS_UPPER_THRESHOLD%len(self.servers)
+
+        for i in range(len(self.servers)-1):
+            if(i == len(self.servers)-2):
+                #For the Last server
+                req = RedistributeRequest(destination_server=self.servers[i+1], lower_val=i*num_keys+num_keys+1+(residue>0), upper_val=(i+1)*num_keys+num_keys-1)
+                stub = KVStoreStub(grpc.insecure_channel(self.servers[i]))
+                stub.Redistribute(req)
+            else:
+                req = RedistributeRequest(destination_server=self.servers[i+1], lower_val=i*num_keys+num_keys+1+(residue>0), upper_val=(i+1)*num_keys)
+                residue -= 1
+                stub = KVStoreStub(grpc.insecure_channel(self.servers[i]))
+                stub.Redistribute(req)
+
+
+
         
 
     def leave(self, server: str):
-        if server not in self.servers:
-            return
-        keys = int(self.max / len(self.servers))
-        for i in range(len(self.servers)):
-            with grpc.insecure_channel(self.servers[i]) as channel:
-                stub = KVStoreStub(channel)
-                stub.redistribute(RedistributeRequest(lower=keys * i, upper=keys * (i + 1), destination_server=server))
-        self.servers.remove(server)
+        if len(self.servers) > 1:
+            # Remove the server's address from the list of servers
+            old_num_keys = int(KEYS_UPPER_THRESHOLD/(len(self.servers)))
+            old_residue = KEYS_UPPER_THRESHOLD%len(self.servers)
+            
+            self.servers.remove(server)
+            num_keys = int(KEYS_UPPER_THRESHOLD/(len(self.servers)))
+            residue = KEYS_UPPER_THRESHOLD%len(self.servers)
 
+            
+        
+
+    #Asks the shard master about the server that holds the provided key. Returns the corresponding server address. 
     def query(self, key: int) -> str:
-        if key < 0 or key > self.max:
-            return ""
+        num_keys = int(KEYS_UPPER_THRESHOLD/len(self.servers))
+        residue = KEYS_UPPER_THRESHOLD%len(self.servers)
         for i in range(len(self.servers)):
-            if key < (i + 1) * int(self.max / len(self.servers)):
-                with grpc.insecure_channel(self.servers[i]) as channel:
-                    stub = KVStoreStub(channel)
-                    return stub.get(ServerRequest(key=key)).value
-
+            if key <= (i+1)*num_keys + (residue>0):
+                return self.servers[i]
+        return self.servers[-1]
+        
 
 class ShardMasterReplicasService(ShardMasterSimpleService):
     def __init__(self, number_of_shards: int):
